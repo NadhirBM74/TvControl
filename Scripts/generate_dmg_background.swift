@@ -117,7 +117,7 @@ func generateDMGBackground() {
     let chevSize = chevrons.size()
     chevrons.draw(at: NSPoint(x: arrowRect.midX - chevSize.width / 2, y: arrowRect.midY - chevSize.height / 2 + 1))
 
-    // 6. En-tête (Logo + TvControl + Badge PRO + Sous-titre)
+    // 6. En-tête (Logo + TvControl + Sous-titre)
     let titleFont = NSFont.systemFont(ofSize: 20, weight: .bold)
     let titleStr = NSAttributedString(
         string: "TvControl",
@@ -128,7 +128,7 @@ func generateDMGBackground() {
     )
     let titleSize = titleStr.size()
     let headerY = flipY(34, height: titleSize.height)
-    let titleX = ptWidth / 2 - titleSize.width / 2 - 6
+    let titleX = ptWidth / 2 - titleSize.width / 2 + 12
 
     // Icône à gauche du titre
     if let iconImg = NSImage(contentsOfFile: "/tmp/tvcontrol_transparent_icon.png")
@@ -138,24 +138,10 @@ func generateDMGBackground() {
 
     titleStr.draw(at: NSPoint(x: titleX, y: headerY))
 
-    // Badge PRO à droite du titre
-    let proRect = NSRect(x: titleX + titleSize.width + 8, y: headerY + 3, width: 34, height: 17)
-    let proPath = NSBezierPath(roundedRect: proRect, xRadius: 8.5, yRadius: 8.5)
     let proGrad = NSGradient(colors: [
         NSColor(calibratedRed: 0.55, green: 0.28, blue: 0.95, alpha: 1.0),
         NSColor(calibratedRed: 0.72, green: 0.38, blue: 0.98, alpha: 1.0)
     ])!
-    proGrad.draw(in: proPath, angle: 0)
-
-    let proText = NSAttributedString(
-        string: "PRO",
-        attributes: [
-            .font: NSFont.systemFont(ofSize: 9, weight: .black),
-            .foregroundColor: NSColor.white
-        ]
-    )
-    let proTextSize = proText.size()
-    proText.draw(at: NSPoint(x: proRect.midX - proTextSize.width / 2, y: proRect.midY - proTextSize.height / 2))
 
     // Sous-titre
     let subStr = NSAttributedString(

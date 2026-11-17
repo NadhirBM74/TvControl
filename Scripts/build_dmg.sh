@@ -118,7 +118,8 @@ APPLESCRIPT
 fi
 
 # Créer aussi l'archive .zip pour le système de mise à jour GitHub
-ditto -c -k --sequesterRsrc --keepParent "$TEMP_DMG_SOURCE/TvControl.app" "$DIST_DIR/TvControl-v1.0.0.zip"
+APP_VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$TEMP_DMG_SOURCE/TvControl.app/Contents/Info.plist" 2>/dev/null || echo "1.0.2")
+ditto -c -k --sequesterRsrc --keepParent "$TEMP_DMG_SOURCE/TvControl.app" "$DIST_DIR/TvControl-v${APP_VER}.zip"
 cp "$OUTPUT_DMG" "$ROOT_DMG"
 
 echo "✨ 7. Application du logo personnalisé sur le fichier .dmg..."

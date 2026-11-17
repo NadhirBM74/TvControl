@@ -2,9 +2,9 @@
 //  UpdateManager.swift
 //  TvControl
 //
-//  Système de mise à jour automatique via GitHub Releases (identique à LaunchPad).
-//  Supporte les archives .zip et .dmg, le téléchargement avec barre de progression
-//  et l'installation + relance automatique de TvControl.app.
+//  Système de mise à jour automatique via GitHub Releases.
+//  Télécharge la dernière version (.zip ou .dmg), remplace /Applications/TvControl.app
+//  et relance automatiquement l'application en un seul clic.
 //
 
 import Foundation
@@ -44,7 +44,6 @@ public enum UpdateState: Equatable, Sendable {
     }
 }
 
-/// Gestionnaire central des mises à jour logicielles sur GitHub avec auto-installation.
 @MainActor
 public final class UpdateManager: NSObject, ObservableObject {
     public static let shared = UpdateManager()
@@ -96,15 +95,53 @@ public final class UpdateManager: NSObject, ObservableObject {
     }
 
     private func fetchLatestRelease() async throws -> [String: Any]? {
-        // 1. Tentative prioritaire CDN raw.githubusercontent.com (version.json)
+        // 1. API REST GitHub Releases en priorité (aucun délai de cache CDN)
+        let apiEndpoints = [
+            "https://api.github.com/repos/\(Self.repoOwner)/\(Self.repoName)/releases/latest",
+            "https://api.github.com/repos/\(Self.repoOwner)/\(Self.repoName)/releases?per_page=1"
+        ]
+
+        var lastHttpCode: Int = 0
+
+        for endpoint in apiEndpoints {
+            guard let url = URL(string: endpoint) else { continue }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 6
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            request.setValue("TvControl-App/\(currentAppVersion) (Macintosh; macOS)", forHTTPHeaderField: "User-Agent")
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse {
+                    lastHttpCode = httpResponse.statusCode
+                    if httpResponse.statusCode == 200 {
+                        if let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                           let tag = dict["tag_name"] as? String, !tag.isEmpty {
+                            return dict
+                        } else if let arr = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]],
+                                  let first = arr.first,
+                                  let tag = first["tag_name"] as? String, !tag.isEmpty {
+                            return first
+                        }
+                    }
+                }
+            } catch {
+                // Repli sur raw.githubusercontent.com
+            }
+        }
+
+        // 2. Repli CDN raw.githubusercontent.com (version.json avec cache-buster)
+        let ts = Int(Date().timeIntervalSince1970)
         let rawEndpoints = [
-            "https://raw.githubusercontent.com/\(Self.repoOwner)/\(Self.repoName)/refs/heads/main/version.json",
-            "https://raw.githubusercontent.com/\(Self.repoOwner)/\(Self.repoName)/main/version.json"
+            "https://raw.githubusercontent.com/\(Self.repoOwner)/\(Self.repoName)/refs/heads/main/version.json?t=\(ts)",
+            "https://raw.githubusercontent.com/\(Self.repoOwner)/\(Self.repoName)/main/version.json?t=\(ts)"
         ]
         for rawEndpoint in rawEndpoints {
             if let rawUrl = URL(string: rawEndpoint) {
                 var rawReq = URLRequest(url: rawUrl)
-                rawReq.timeoutInterval = 4
+                rawReq.timeoutInterval = 5
                 rawReq.cachePolicy = .reloadIgnoringLocalCacheData
                 rawReq.setValue("TvControl-App/\(currentAppVersion) (Macintosh; macOS)", forHTTPHeaderField: "User-Agent")
 
@@ -118,52 +155,9 @@ public final class UpdateManager: NSObject, ObservableObject {
             }
         }
 
-        // 2. Repli sur l'API REST GitHub Releases
-        let apiEndpoints = [
-            "https://api.github.com/repos/\(Self.repoOwner)/\(Self.repoName)/releases/latest",
-            "https://api.github.com/repos/\(Self.repoOwner)/\(Self.repoName)/releases?per_page=1"
-        ]
-
-        var lastHttpCode: Int = 0
-
-        for endpoint in apiEndpoints {
-            guard let url = URL(string: endpoint) else { continue }
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 6
-            request.cachePolicy = .useProtocolCachePolicy
-            request.setValue("TvControl-App/\(currentAppVersion) (Macintosh; macOS)", forHTTPHeaderField: "User-Agent")
-            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-
-            for attempt in 1...2 {
-                do {
-                    let (data, response) = try await URLSession.shared.data(for: request)
-                    guard let httpResponse = response as? HTTPURLResponse else { continue }
-                    lastHttpCode = httpResponse.statusCode
-
-                    if httpResponse.statusCode == 200 {
-                        if let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-                           let tag = dict["tag_name"] as? String, !tag.isEmpty {
-                            return dict
-                        } else if let arr = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]],
-                                  let first = arr.first,
-                                  let tag = first["tag_name"] as? String, !tag.isEmpty {
-                            return first
-                        }
-                    } else if httpResponse.statusCode == 404 {
-                        return nil
-                    }
-                } catch {
-                    // Erreur transport réseau
-                }
-
-                if attempt < 2 {
-                    try? await Task.sleep(nanoseconds: 600_000_000)
-                }
-            }
-        }
-
-        if lastHttpCode > 0 {
+        if lastHttpCode == 404 {
+            return nil
+        } else if lastHttpCode > 0 {
             throw NSError(domain: "UpdateManager", code: lastHttpCode, userInfo: [
                 NSLocalizedDescriptionKey: "Serveur GitHub temporairement indisponible (code \(lastHttpCode))."
             ])
@@ -242,7 +236,7 @@ public final class UpdateManager: NSObject, ObservableObject {
                 if !manual {
                     sendUpdateNotification(
                         title: "Mise à jour TvControl disponible ✨",
-                        body: "La version v\(cleanRemoteVersion) est disponible sur GitHub."
+                        body: "La version v\(cleanRemoteVersion) est disponible."
                     )
                 }
             } else {
@@ -270,7 +264,7 @@ public final class UpdateManager: NSObject, ObservableObject {
         UNUserNotificationCenter.current().add(req)
     }
 
-    // MARK: - Téléchargement et Installation
+    // MARK: - Téléchargement et Installation Automatique
 
     public func downloadAndInstall() {
         guard case .updateAvailable(let version, _, let downloadUrl) = state,
@@ -291,7 +285,11 @@ public final class UpdateManager: NSObject, ObservableObject {
     private func startDownloadTask(targetUrl: URL, isApiFallback: Bool, ext: String, version: String) {
         var request = URLRequest(url: targetUrl)
         request.setValue("TvControl-Updater/\(currentAppVersion)", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/octet-stream, application/zip, */*", forHTTPHeaderField: "Accept")
+        if isApiFallback {
+            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+        } else {
+            request.setValue("*/*", forHTTPHeaderField: "Accept")
+        }
         request.timeoutInterval = 60
 
         let fallbackApiUrl = self.pendingApiAssetUrl
@@ -305,7 +303,7 @@ public final class UpdateManager: NSObject, ObservableObject {
             var validFile = false
             if let tempUrl = tempUrl, isSuccessfulHttp, error == nil {
                 let fileSize = (try? FileManager.default.attributesOfItem(atPath: tempUrl.path)[.size] as? Int64) ?? 0
-                if fileSize >= 100_000 {
+                if fileSize >= 50_000 {
                     validFile = true
                 }
             }
@@ -425,13 +423,10 @@ public final class UpdateManager: NSObject, ObservableObject {
                 resolvedTargetAppPath = rawTargetPath
             }
 
+            // Lance immédiatement l'installation et le redémarrage dès la fin de l'extraction
             await MainActor.run {
                 self.stagedUpdateContext = (tempDir, newAppURL, resolvedTargetAppPath)
-                self.state = .readyToRestart(version: version)
-                self.sendUpdateNotification(
-                    title: "TvControl prêt à redémarrer 🚀",
-                    body: "La version v\(version) est prête à être installée."
-                )
+                self.applyUpdateAndRelaunch()
             }
         } catch {
             await MainActor.run {
@@ -491,12 +486,16 @@ public final class UpdateManager: NSObject, ObservableObject {
             chmod.waitUntilExit()
 
             let relaunchProcess = Process()
-            relaunchProcess.executableURL = URL(fileURLWithPath: "/usr/bin/nohup")
-            relaunchProcess.arguments = ["/bin/bash", scriptURL.path]
+            relaunchProcess.currentDirectoryURL = URL(fileURLWithPath: "/tmp")
+            relaunchProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
+            relaunchProcess.arguments = ["-c", "/usr/bin/nohup /bin/bash \"\(scriptURL.path)\" >/tmp/tvcontrol_updater.log 2>&1 &"]
+            relaunchProcess.standardOutput = FileHandle.nullDevice
+            relaunchProcess.standardError = FileHandle.nullDevice
+            relaunchProcess.standardInput = FileHandle.nullDevice
             try relaunchProcess.run()
 
             NSApp.terminate(nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 exit(0)
             }
         } catch {

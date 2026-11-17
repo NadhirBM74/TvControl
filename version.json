@@ -1,12 +1,12 @@
 {
-  "tag_name": "v1.0.1",
-  "name": "TvControl v1.0.1",
-  "body": "### Nouveautés TvControl v1.0.1\n- Interface Popover ultra-simple et épurée identique à EjectBar\n- Correction du redimensionnement du Popover lors du lancement d'un minuteur (décompte intégré directement sur la ligne choisie)",
+  "tag_name": "v1.0.2",
+  "name": "TvControl v1.0.2",
+  "body": "### Nouveautés TvControl v1.0.2\n- Installation et relance automatique des mises à jour GitHub en un clic\n- Suppression du badge PRO dans les paramètres et l'installateur\n- Interface Popover ultra-simple et épurée identique à EjectBar",
   "html_url": "https://github.com/NadhirBM74/TvControl/releases/latest",
   "assets": [
     {
-      "name": "TvControl-v1.0.1.zip",
-      "browser_download_url": "https://github.com/NadhirBM74/TvControl/releases/latest/download/TvControl-v1.0.1.zip"
+      "name": "TvControl-v1.0.2.zip",
+      "browser_download_url": "https://github.com/NadhirBM74/TvControl/releases/latest/download/TvControl-v1.0.2.zip"
     },
     {
       "name": "TvControl.dmg",
