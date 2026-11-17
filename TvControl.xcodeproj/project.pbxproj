@@ -1,0 +1,298 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000012B00000100000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012B00000100000001 /* AppDelegate.swift */; };
+		A10000022B00000100000001 /* SmartTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022B00000100000001 /* SmartTV.swift */; };
+		A10000032B00000100000001 /* TVDiscoveryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000032B00000100000001 /* TVDiscoveryManager.swift */; };
+		A10000042B00000100000001 /* TVController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042B00000100000001 /* TVController.swift */; };
+		A10000052B00000100000001 /* SleepTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000052B00000100000001 /* SleepTimerManager.swift */; };
+		A10000062B00000100000001 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000062B00000100000001 /* UpdateManager.swift */; };
+		A10000072B00000100000001 /* TvPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000072B00000100000001 /* TvPopoverView.swift */; };
+		A10000082B00000100000001 /* SettingsWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082B00000100000001 /* SettingsWindowView.swift */; };
+		A10000092B00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000092B00000100000001 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000002B00000100000001 /* TvControl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TvControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000012B00000100000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A20000022B00000100000001 /* SmartTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartTV.swift; sourceTree = "<group>"; };
+		A20000032B00000100000001 /* TVDiscoveryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVDiscoveryManager.swift; sourceTree = "<group>"; };
+		A20000042B00000100000001 /* TVController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVController.swift; sourceTree = "<group>"; };
+		A20000052B00000100000001 /* SleepTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerManager.swift; sourceTree = "<group>"; };
+		A20000062B00000100000001 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
+		A20000072B00000100000001 /* TvPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TvPopoverView.swift; sourceTree = "<group>"; };
+		A20000082B00000100000001 /* SettingsWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowView.swift; sourceTree = "<group>"; };
+		A20000092B00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A200000A2B00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A200000B2B00000100000001 /* TvControl.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TvControl.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A30000012B00000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A40000012B00000100000001 = {
+			isa = PBXGroup;
+			children = (
+				A40000022B00000100000001 /* TvControl */,
+				A40000032B00000100000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A40000022B00000100000001 /* TvControl */ = {
+			isa = PBXGroup;
+			children = (
+				A20000012B00000100000001 /* AppDelegate.swift */,
+				A40000042B00000100000001 /* Models */,
+				A40000052B00000100000001 /* Core */,
+				A40000062B00000100000001 /* Views */,
+				A20000092B00000100000001 /* Assets.xcassets */,
+				A200000A2B00000100000001 /* Info.plist */,
+				A200000B2B00000100000001 /* TvControl.entitlements */,
+			);
+			path = TvControl;
+			sourceTree = "<group>";
+		};
+		A40000032B00000100000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A20000002B00000100000001 /* TvControl.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A40000042B00000100000001 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A20000022B00000100000001 /* SmartTV.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A40000052B00000100000001 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A20000032B00000100000001 /* TVDiscoveryManager.swift */,
+				A20000042B00000100000001 /* TVController.swift */,
+				A20000052B00000100000001 /* SleepTimerManager.swift */,
+				A20000062B00000100000001 /* UpdateManager.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		A40000062B00000100000001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A20000072B00000100000001 /* TvPopoverView.swift */,
+				A20000082B00000100000001 /* SettingsWindowView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A50000012B00000100000001 /* TvControl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80000022B00000100000001 /* Build configuration list for PBXNativeTarget "TvControl" */;
+			buildPhases = (
+				A60000012B00000100000001 /* Sources */,
+				A30000012B00000100000001 /* Frameworks */,
+				A70000012B00000100000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TvControl;
+			productName = TvControl;
+			productReference = A20000002B00000100000001 /* TvControl.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A90000012B00000100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A50000012B00000100000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A80000012B00000100000001 /* Build configuration list for PBXProject "TvControl" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = fr;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				fr,
+				en,
+				Base,
+			);
+			mainGroup = A40000012B00000100000001;
+			productRefGroup = A40000032B00000100000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A50000012B00000100000001 /* TvControl */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A70000012B00000100000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000092B00000100000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A60000012B00000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012B00000100000001 /* AppDelegate.swift in Sources */,
+				A10000022B00000100000001 /* SmartTV.swift in Sources */,
+				A10000032B00000100000001 /* TVDiscoveryManager.swift in Sources */,
+				A10000042B00000100000001 /* TVController.swift in Sources */,
+				A10000052B00000100000001 /* SleepTimerManager.swift in Sources */,
+				A10000062B00000100000001 /* UpdateManager.swift in Sources */,
+				A10000072B00000100000001 /* TvPopoverView.swift in Sources */,
+				A10000082B00000100000001 /* SettingsWindowView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AA0000012B00000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AA0000022B00000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		AA0000032B00000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TvControl/TvControl.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TvControl/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tvcontrol.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000042B00000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TvControl/TvControl.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TvControl/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tvcontrol.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A80000012B00000100000001 /* Build configuration list for PBXProject "TvControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000012B00000100000001 /* Debug */,
+				AA0000022B00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A80000022B00000100000001 /* Build configuration list for PBXNativeTarget "TvControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000032B00000100000001 /* Debug */,
+				AA0000042B00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A90000012B00000100000001 /* Project object */;
+}

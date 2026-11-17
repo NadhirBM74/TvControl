@@ -1,0 +1,16 @@
+{
+  "tag_name": "v1.0.0",
+  "name": "TvControl v1.0.0",
+  "body": "### Nouveautés TvControl v1.0.0\n- Application barre des menus macOS (style EjectBar)\n- Minuteurs d'extinction 1h, 2h, 3h, 4h et 5h avec décompte en direct\n- Détection automatique des Smart TV sur le réseau Wi-Fi (Samsung, LG webOS, Roku, Sony Bravia, Android TV, Philips)\n- Système de mise à jour automatique via GitHub Releases",
+  "html_url": "https://github.com/NadhirBM74/TvControl/releases/latest",
+  "assets": [
+    {
+      "name": "TvControl-v1.0.0.zip",
+      "browser_download_url": "https://github.com/NadhirBM74/TvControl/releases/latest/download/TvControl-v1.0.0.zip"
+    },
+    {
+      "name": "TvControl-v1.0.0.dmg",
+      "browser_download_url": "https://github.com/NadhirBM74/TvControl/releases/latest/download/TvControl-v1.0.0.dmg"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+name: Release TvControl
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Numéro de version (ex: v1.0.1)'
+        required: true
+        default: 'v1.0.1'
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Determine Version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate App Icon & DMG Background
+        run: |
+          swiftc -parse-as-library Scripts/generate_app_icon.swift -o /tmp/gen_tvcontrol_icon
+          /tmp/gen_tvcontrol_icon TvControl/Assets.xcassets/AppIcon.appiconset
+          swiftc -parse-as-library Scripts/generate_dmg_background.swift -o /tmp/gen_tvcontrol_dmg_bg
+          /tmp/gen_tvcontrol_dmg_bg
+
+      - name: Build TvControl (Release)
+        run: |
+          xcodebuild -project TvControl.xcodeproj \
+                     -scheme TvControl \
+                     -configuration Release \
+                     -derivedDataPath ./build \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_ENTITLEMENTS="" \
+                     CODE_SIGNING_ALLOWED=NO
+
+      - name: Create DMG & Zip Archive
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          mkdir -p dist
+          APP_PATH="./build/Build/Products/Release/TvControl.app"
+
+          codesign --force --deep --sign - --identifier "com.tvcontrol.app" "$APP_PATH"
+
+          # Création du zip de release pour l'auto-updater GitHub
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "dist/TvControl-${VERSION}.zip"
+
+          # Installation de create-dmg pour le DMG personnalisé style LaunchPad
+          brew install create-dmg || true
+
+          mkdir -p /tmp/dmg_source
+          ditto "$APP_PATH" "/tmp/dmg_source/TvControl.app"
+
+          create-dmg \
+            --volname "TvControl" \
+            --background "/tmp/tvcontrol_bg_opaque.png" \
+            --window-pos 200 120 \
+            --window-size 640 440 \
+            --icon-size 96 \
+            --text-size 13 \
+            --icon "TvControl.app" 175 195 \
+            --hide-extension "TvControl.app" \
+            --app-drop-link 465 195 \
+            --overwrite \
+            "dist/TvControl-${VERSION}.dmg" \
+            "/tmp/dmg_source" || hdiutil create -volname "TvControl" -srcfolder "$APP_PATH" -ov -format UDZO "dist/TvControl-${VERSION}.dmg"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: TvControl ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/TvControl-*.dmg
+            dist/TvControl-*.zip
