@@ -109,6 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
         let hostingController = NSHostingController(rootView: popoverContent)
+        hostingController.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hostingController
     }
 
@@ -136,9 +137,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPopover(_ button: NSStatusBarButton) {
-        if let hostingController = popover.contentViewController {
-            popover.contentSize = hostingController.view.fittingSize
-        }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
