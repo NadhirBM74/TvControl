@@ -2,10 +2,8 @@
 //  TVDiscoveryManager.swift
 //  TvControl
 //
-//  Découverte multi-protocoles des Smart TV sur le réseau Wi-Fi local :
-//  1. SSDP / UPnP Multicast (239.255.255.250:1900) + lecture XML UPnP
-//  2. Bonjour / mDNS (_googlecast._tcp, _airplay._tcp, _hap._tcp, _adb._tcp)
-//  3. Scan actif du sous-réseau Wi-Fi & table ARP sur les ports TV (Samsung 8001/8002, LG 3000/3001, Roku 8060, Sony 80, Android TV 5555/8008, Philips 1925)
+//  Découverte multi-protocoles des Smart TV sur le réseau Wi-Fi local
+//  + Surveillance Ping & État d'alimentation en temps réel (Allumée / Éteinte).
 //
 
 import Foundation
@@ -21,9 +19,11 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
     @Published public var selectedTVID: String? {
         didSet {
             UserDefaults.standard.set(selectedTVID, forKey: Self.selectedTVKey)
+            Task { await pingAllTVsNow() }
         }
     }
     @Published public private(set) var isScanning: Bool = false
+    @Published public private(set) var isPinging: Bool = false
     @Published public private(set) var localWiFiIP: String?
 
     private static let savedTVsKey = "TvControl.SavedSmartTVs"
@@ -32,6 +32,7 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
     private var netServiceBrowsers: [NetServiceBrowser] = []
     private var resolvingServices: [NetService] = []
     private var scanTask: Task<Void, Never>?
+    private var pingTimer: Timer?
 
     public var selectedTV: SmartTV? {
         if let id = selectedTVID, let match = discoveredTVs.first(where: { $0.id == id }) {
@@ -48,6 +49,171 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
             self.selectedTVID = first.id
         }
         self.localWiFiIP = Self.detectLocalIPv4()
+        startContinuousPingMonitor()
+    }
+
+    // MARK: - Surveillance Ping en Temps Réel (Allumée / Éteinte)
+
+    /// Lance un ping périodique toutes les 4 secondes pour savoir si la TV est allumée ou éteinte.
+    public func startContinuousPingMonitor() {
+        pingTimer?.invalidate()
+        pingTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.pingAllTVsNow()
+            }
+        }
+        RunLoop.main.add(pingTimer!, forMode: .common)
+
+        Task {
+            await pingAllTVsNow()
+        }
+    }
+
+    /// Vérifie immédiatement l'état (Allumée / Éteinte) de toutes les TV enregistrées.
+    public func pingAllTVsNow() async {
+        guard !discoveredTVs.isEmpty, !isPinging else { return }
+        isPinging = true
+        defer { isPinging = false }
+
+        let currentList = discoveredTVs
+        let updatedStates: [(String, Bool)] = await withTaskGroup(of: (String, Bool).self) { group in
+            for tv in currentList {
+                group.addTask {
+                    let isOn = await Self.checkTVPowerAndPing(tv: tv)
+                    return (tv.id, isOn)
+                }
+            }
+            var results: [(String, Bool)] = []
+            for await item in group {
+                results.append(item)
+            }
+            return results
+        }
+
+        var changed = false
+        for (id, isOn) in updatedStates {
+            if let idx = discoveredTVs.firstIndex(where: { $0.id == id }) {
+                if discoveredTVs[idx].isOnline != isOn {
+                    discoveredTVs[idx].isOnline = isOn
+                    changed = true
+                }
+            }
+        }
+        if changed {
+            saveTVs()
+        }
+    }
+
+    /// Vérifie l'état réel d'une TV spécifique et met à jour son statut.
+    @discardableResult
+    public func pingTV(_ tv: SmartTV) async -> Bool {
+        let isOn = await Self.checkTVPowerAndPing(tv: tv)
+        if let idx = discoveredTVs.firstIndex(where: { $0.id == tv.id }) {
+            if discoveredTVs[idx].isOnline != isOn {
+                discoveredTVs[idx].isOnline = isOn
+                saveTVs()
+            }
+        }
+        return isOn
+    }
+
+    /// Combine l'API d'état d'alimentation de la TV, le test de port TCP et le ping ICMP (/sbin/ping)
+    /// pour déterminer avec précision si la TV est allumée (true) ou éteinte/en veille (false).
+    public nonisolated static func checkTVPowerAndPing(tv: SmartTV) async -> Bool {
+        switch tv.brand {
+        case .samsung:
+            // 1. Vérifier l'API Samsung Tizen sur le port 8001 (renvoie PowerState = "on" ou "standby")
+            if let url = URL(string: "http://\(tv.ipAddress):8001/api/v2/") {
+                var req = URLRequest(url: url)
+                req.timeoutInterval = 1.1
+                req.cachePolicy = .reloadIgnoringLocalCacheData
+                if let (data, resp) = try? await URLSession.shared.data(for: req),
+                   let http = resp as? HTTPURLResponse,
+                   (200...299).contains(http.statusCode),
+                   let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                    if let device = json["device"] as? [String: Any],
+                       let powerState = (device["PowerState"] as? String)?.lowercased() {
+                        return powerState == "on"
+                    }
+                    return true
+                }
+            }
+            // 2. Fallback sur le port WebSocket 8002 / 8001
+            if await isTCPPortOpen(ip: tv.ipAddress, port: 8002, timeoutMs: 450) {
+                return true
+            }
+            if await isTCPPortOpen(ip: tv.ipAddress, port: 8001, timeoutMs: 450) {
+                return true
+            }
+            return false
+
+        case .lgWebOS:
+            // Une TV LG webOS allumée ouvre ses ports SSAP 3000 ou 3001
+            if await isTCPPortOpen(ip: tv.ipAddress, port: 3000, timeoutMs: 500) {
+                return true
+            }
+            if await isTCPPortOpen(ip: tv.ipAddress, port: 3001, timeoutMs: 500) {
+                return true
+            }
+            return false
+
+        case .roku:
+            if let url = URL(string: "http://\(tv.ipAddress):8060/query/device-info") {
+                var req = URLRequest(url: url)
+                req.timeoutInterval = 1.1
+                req.cachePolicy = .reloadIgnoringLocalCacheData
+                if let (data, _) = try? await URLSession.shared.data(for: req),
+                   let xml = String(data: data, encoding: .utf8) {
+                    if let powerMode = extractXMLTag("power-mode", from: xml)?.lowercased() {
+                        return powerMode.contains("poweron") || powerMode == "on"
+                    }
+                    return true
+                }
+            }
+            return await isTCPPortOpen(ip: tv.ipAddress, port: 8060, timeoutMs: 450)
+
+        case .sonyBravia:
+            if let url = URL(string: "http://\(tv.ipAddress)/sony/system") {
+                var req = URLRequest(url: url)
+                req.httpMethod = "POST"
+                req.timeoutInterval = 1.1
+                req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                let body: [String: Any] = ["method": "getPowerStatus", "id": 1, "params": [], "version": "1.0"]
+                req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+                if let (data, _) = try? await URLSession.shared.data(for: req),
+                   let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                   let results = json["result"] as? [[String: Any]],
+                   let status = (results.first?["status"] as? String)?.lowercased() {
+                    return status == "active"
+                }
+            }
+            return await isICMPPingReachable(ip: tv.ipAddress)
+
+        default:
+            // Test combiné du port de contrôle TCP et du ping ICMP
+            if await isTCPPortOpen(ip: tv.ipAddress, port: UInt16(tv.port), timeoutMs: 450) {
+                return true
+            }
+            return await isICMPPingReachable(ip: tv.ipAddress)
+        }
+    }
+
+    /// Exécute un vrai ping ICMP rapide (/sbin/ping -c 1 -W 600 <ip>)
+    public nonisolated static func isICMPPingReachable(ip: String) async -> Bool {
+        await Task.detached(priority: .utility) {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/sbin/ping")
+            proc.arguments = ["-c", "1", "-W", "600", "-q", ip]
+            proc.standardOutput = FileHandle.nullDevice
+            proc.standardError = FileHandle.nullDevice
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                return proc.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
     }
 
     // MARK: - Persistance
@@ -75,9 +241,8 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
     }
 
     public func addOrUpdateTV(_ tv: SmartTV, autoSelect: Bool = false) {
-        if let idx = discoveredTVs.firstIndex(where: { $0.id == tv.id || $0.ipAddress == tv.ipAddress }) {
+        if let idx = discoveredTVs.firstIndex(where: { $0.id == tv.id || ($0.ipAddress == tv.ipAddress && $0.brand == tv.brand) }) {
             var updated = tv
-            // Conserver le jeton d'appairage existant si le nouveau n'en a pas
             if updated.pairingToken == nil || updated.pairingToken?.isEmpty == true {
                 updated.pairingToken = discoveredTVs[idx].pairingToken
             }
@@ -116,18 +281,14 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
         isScanning = true
         localWiFiIP = Self.detectLocalIPv4()
 
-        // Démarrer la découverte Bonjour / mDNS sur le thread principal
         startBonjourDiscovery()
 
         scanTask?.cancel()
         scanTask = Task {
             await withTaskGroup(of: [SmartTV].self) { group in
-                // 1. Découverte SSDP / UPnP Multicast
                 group.addTask {
                     await Self.performSSDPScan()
                 }
-
-                // 2. Scan rapide des hôtes ARP + sous-réseau Wi-Fi sur les ports Smart TV
                 group.addTask {
                     await Self.performSubnetAndARPScan(localIP: self.localWiFiIP)
                 }
@@ -139,9 +300,9 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
                 }
             }
 
-            // Laisser Bonjour finir ses résolutions pendant 1 seconde supplémentaire
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             self.stopBonjourDiscovery()
+            await self.pingAllTVsNow()
             self.isScanning = false
         }
     }
@@ -152,7 +313,7 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
         isScanning = false
     }
 
-    // MARK: - 1. Bonjour / mDNS (_googlecast._tcp, _airplay._tcp, _hap._tcp)
+    // MARK: - 1. Bonjour / mDNS
 
     private func startBonjourDiscovery() {
         stopBonjourDiscovery()
@@ -238,9 +399,7 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
                     }
                 }
 
-                if bytesRead <= 0 {
-                    continue
-                }
+                if bytesRead <= 0 { continue }
 
                 var ipCString = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
                 var addrCopy = senderAddr.sin_addr
@@ -259,7 +418,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
                     collected.append((ip: senderIP, headers: headers))
                 }
             }
-
             return collected
         }.value
 
@@ -271,7 +429,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
             let server = (item.headers["SERVER"] ?? "") + " " + (item.headers["ST"] ?? "") + " " + (item.headers["USN"] ?? "")
             let location = item.headers["LOCATION"]
 
-            // Inspecter l'XML UPnP si disponible
             if let locStr = location, let locURL = URL(string: locStr) {
                 if let tv = await Self.inspectUPnPDescription(url: locURL, fallbackIP: ip, serverHeader: server) {
                     tvsByIP[ip] = tv
@@ -279,7 +436,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
                 }
             }
 
-            // Classification par en-tête SSDP
             let lower = server.lowercased()
             if lower.contains("samsung") || lower.contains("tizen") {
                 tvsByIP[ip] = SmartTV(name: "Samsung Smart TV", ipAddress: ip, brand: .samsung, isOnline: true)
@@ -312,7 +468,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
         let modelName = extractXMLTag("modelName", from: xml) ?? ""
         let combined = "\(friendlyName) \(manufacturer) \(modelName) \(serverHeader)".lowercased()
 
-        // Filtrer les routeurs / passerelles Internet qui ne sont pas des TV
         if combined.contains("internetgatewaydevice") || combined.contains("wanconnection") || combined.contains("router") || combined.contains("livebox") || combined.contains("bbox") {
             if !combined.contains("tv") && !combined.contains("player") && !combined.contains("cast") {
                 return nil
@@ -353,13 +508,10 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
 
     private nonisolated static func performSubnetAndARPScan(localIP: String?) async -> [SmartTV] {
         var candidateIPs = Set<String>()
-
-        // 1. Lire la table ARP macOS (/usr/sbin/arp -a) pour trouver instantanément les appareils actifs du Wi-Fi
         for ip in readARPTableIPs() {
             candidateIPs.insert(ip)
         }
 
-        // 2. Ajouter les adresses du sous-réseau /24 si on connaît l'IP Wi-Fi locale
         if let localIP = localIP {
             let parts = localIP.split(separator: ".")
             if parts.count == 4 {
@@ -376,7 +528,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
         let sortedCandidates = Array(candidateIPs)
         var discovered: [SmartTV] = []
 
-        // Sonde les IP par lots pour rester rapide et léger
         let batchSize = 40
         for start in stride(from: 0, to: sortedCandidates.count, by: batchSize) {
             if Task.isCancelled { break }
@@ -403,9 +554,7 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
         return discovered
     }
 
-    /// Teste les endpoints HTTP/TCP classiques des Smart TV sur une adresse IP locale.
     private nonisolated static func probeHostForSmartTV(ip: String) async -> SmartTV? {
-        // 1. Samsung Smart TV API (port 8001)
         if await isTCPPortOpen(ip: ip, port: 8001, timeoutMs: 220) {
             if let samsungTV = await fetchSamsungMetadata(ip: ip) {
                 return samsungTV
@@ -413,12 +562,10 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
             return SmartTV(name: "Samsung Smart TV (\(ip))", ipAddress: ip, port: 8002, brand: .samsung, isOnline: true)
         }
 
-        // 2. LG webOS SSAP (port 3000 / 3001)
         if await isTCPPortOpen(ip: ip, port: 3000, timeoutMs: 220) {
             return SmartTV(name: "LG webOS TV (\(ip))", ipAddress: ip, port: 3000, brand: .lgWebOS, isOnline: true)
         }
 
-        // 3. Roku / TCL / Hisense ECP (port 8060)
         if await isTCPPortOpen(ip: ip, port: 8060, timeoutMs: 220) {
             if let rokuTV = await fetchRokuMetadata(ip: ip) {
                 return rokuTV
@@ -426,7 +573,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
             return SmartTV(name: "Roku TV (\(ip))", ipAddress: ip, port: 8060, brand: .roku, isOnline: true)
         }
 
-        // 4. Google Cast / Android TV (port 8008 ou ADB 5555)
         if await isTCPPortOpen(ip: ip, port: 8008, timeoutMs: 220) {
             if let castTV = await fetchChromecastMetadata(ip: ip) {
                 return castTV
@@ -436,7 +582,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
             return SmartTV(name: "Android TV (\(ip))", ipAddress: ip, port: 5555, brand: .androidTV, isOnline: true)
         }
 
-        // 5. Philips JointSpace (port 1925)
         if await isTCPPortOpen(ip: ip, port: 1925, timeoutMs: 200) {
             return SmartTV(name: "Philips Smart TV (\(ip))", ipAddress: ip, port: 1925, brand: .philips, isOnline: true)
         }
@@ -456,6 +601,8 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
         let name = (device?["name"] as? String) ?? (json["name"] as? String) ?? "Samsung Smart TV"
         let model = (device?["modelName"] as? String) ?? (device?["model"] as? String)
         let mac = device?["wifiMac"] as? String
+        let powerState = (device?["PowerState"] as? String)?.lowercased()
+        let isOnline = (powerState == nil) ? true : (powerState == "on")
 
         return SmartTV(
             name: name,
@@ -464,7 +611,7 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
             brand: .samsung,
             modelName: model,
             macAddress: mac,
-            isOnline: true
+            isOnline: isOnline
         )
     }
 
@@ -527,7 +674,7 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
 
     // MARK: - Utilitaires Réseau Bas Niveau
 
-    private nonisolated static func isTCPPortOpen(ip: String, port: UInt16, timeoutMs: Int32) async -> Bool {
+    public nonisolated static func isTCPPortOpen(ip: String, port: UInt16, timeoutMs: Int32) async -> Bool {
         await Task.detached(priority: .utility) {
             let sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
             guard sock >= 0 else { return false }
@@ -637,8 +784,6 @@ public final class TVDiscoveryManager: NSObject, ObservableObject {
     }
 }
 
-// MARK: - NetServiceBrowserDelegate & NetServiceDelegate (Bonjour / mDNS)
-
 extension TVDiscoveryManager: NetServiceBrowserDelegate, NetServiceDelegate {
     nonisolated public func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
         Task { @MainActor in
@@ -689,7 +834,6 @@ extension TVDiscoveryManager: NetServiceBrowserDelegate, NetServiceDelegate {
         let model = txtDict["md"] ?? txtDict["model"] ?? ""
         let combined = "\(friendlyName) \(model) \(serviceType)".lowercased()
 
-        // Ignorer ce Mac lui-même
         if ip == Self.detectLocalIPv4() { return }
 
         let brand: TVBrand

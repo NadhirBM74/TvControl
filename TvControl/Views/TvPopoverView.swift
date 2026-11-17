@@ -128,7 +128,7 @@ struct TvPopoverView: View {
         }
     }
 
-    // MARK: - Pied de page minimaliste
+    // MARK: - Pied de page minimaliste (État Ping Allumée/Éteinte + Éteindre)
 
     private var footerView: some View {
         HStack(spacing: 6) {
@@ -136,15 +136,26 @@ struct TvPopoverView: View {
                 onOpenSettings(.tvs)
             }) {
                 HStack(spacing: 5) {
-                    Circle()
-                        .fill(discoveryManager.selectedTV != nil ? Color.green : Color.secondary.opacity(0.5))
-                        .frame(width: 6, height: 6)
+                    if let tv = discoveryManager.selectedTV {
+                        Circle()
+                            .fill(tv.isOnline ? Color.green : Color.red.opacity(0.85))
+                            .frame(width: 6, height: 6)
 
-                    Text(cleanTVName(discoveryManager.selectedTV?.name) ?? "Choisir une TV...")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                        Text("\(cleanTVName(tv.name) ?? tv.name) • \(tv.isOnline ? "Allumée" : "Éteinte")")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else {
+                        Circle()
+                            .fill(Color.secondary.opacity(0.5))
+                            .frame(width: 6, height: 6)
+
+                        Text("Choisir une TV...")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
             .buttonStyle(.plain)
@@ -161,14 +172,22 @@ struct TvPopoverView: View {
                     }
                 }) {
                     HStack(spacing: 3) {
-                        Image(systemName: "power")
-                            .font(.system(size: 8.5, weight: .bold))
+                        if tvController.isSendingCommand {
+                            ProgressView()
+                                .controlSize(.small)
+                                .scaleEffect(0.55)
+                                .frame(width: 10, height: 10)
+                        } else {
+                            Image(systemName: "power")
+                                .font(.system(size: 8.5, weight: .bold))
+                        }
                         Text("Éteindre")
                             .font(.system(size: 10, weight: .medium))
                     }
                     .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .disabled(tvController.isSendingCommand)
                 .onHover { isHovered in
                     if isHovered { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                 }

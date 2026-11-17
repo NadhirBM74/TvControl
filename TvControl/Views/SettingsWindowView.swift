@@ -424,10 +424,25 @@ private struct DiscoveredTVRow: View {
                         .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05))
                 )
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(tv.name.replacingOccurrences(of: "[TV] ", with: ""))
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(tv.name.replacingOccurrences(of: "[TV] ", with: ""))
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .lineLimit(1)
+
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(tv.isOnline ? Color.green : Color.red.opacity(0.8))
+                            .frame(width: 5.5, height: 5.5)
+                        Text(tv.isOnline ? "Allumée" : "Éteinte")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundColor(tv.isOnline ? .green : .secondary)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1.5)
+                    .background((tv.isOnline ? Color.green : Color.secondary).opacity(0.12))
+                    .clipShape(Capsule())
+                }
                 Text("\(tv.brand.rawValue) • \(tv.ipAddress)")
                     .font(.system(size: 10.5))
                     .foregroundColor(.secondary)

@@ -137,6 +137,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPopover(_ button: NSStatusBarButton) {
+        Task {
+            await discoveryManager.pingAllTVsNow()
+        }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
