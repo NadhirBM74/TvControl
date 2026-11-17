@@ -1,12 +1,12 @@
 {
-  "tag_name": "v1.0.3",
-  "name": "TvControl v1.0.3",
-  "body": "### Nouveautés TvControl v1.0.3\n- Ping en temps réel pour détecter l'état de la TV (Allumée / Éteinte)\n- Mode Rafale : envoi simultané de plusieurs requêtes d'extinction sur plusieurs salves jusqu'à confirmation par ping que la TV est bien éteinte",
+  "tag_name": "v1.0.4",
+  "name": "TvControl v1.0.4",
+  "body": "### Nouveautés TvControl v1.0.4\n- **Alarme d'extinction programmée** : Définissez une heure précise (ex: 23:30) pour éteindre automatiquement votre téléviseur chaque soir, avec notification 5 minutes avant.\n- **Interface ultra-compacte** : Dimensions de la fenêtre et des cartes considérablement réduites (style épuré et minimaliste EjectBar).\n- **Onglet Alarme dédié** : Nouvel onglet dans les paramètres avec sélecteur d'heure natif, répétition quotidienne et test instantané.",
   "html_url": "https://github.com/NadhirBM74/TvControl/releases/latest",
   "assets": [
     {
-      "name": "TvControl-v1.0.3.zip",
-      "browser_download_url": "https://github.com/NadhirBM74/TvControl/releases/latest/download/TvControl-v1.0.3.zip"
+      "name": "TvControl-v1.0.4.zip",
+      "browser_download_url": "https://github.com/NadhirBM74/TvControl/releases/latest/download/TvControl-v1.0.4.zip"
     },
     {
       "name": "TvControl.dmg",

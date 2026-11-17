@@ -60,9 +60,49 @@ public final class SleepTimerManager: ObservableObject {
         }
     }
 
+    // MARK: - Alarme d'extinction programmée à heure fixe
+
+    /// Alarme d'extinction activée ou non
+    @Published public var isAlarmEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isAlarmEnabled, forKey: "TvControl.AlarmEnabled")
+            updateNextAlarmDescription()
+        }
+    }
+
+    /// Heure de l'alarme (0-23)
+    @Published public var alarmHour: Int {
+        didSet {
+            UserDefaults.standard.set(alarmHour, forKey: "TvControl.AlarmHour")
+            updateNextAlarmDescription()
+        }
+    }
+
+    /// Minute de l'alarme (0-59)
+    @Published public var alarmMinute: Int {
+        didSet {
+            UserDefaults.standard.set(alarmMinute, forKey: "TvControl.AlarmMinute")
+            updateNextAlarmDescription()
+        }
+    }
+
+    /// Répéter l'alarme chaque jour
+    @Published public var alarmRepeatDaily: Bool {
+        didSet {
+            UserDefaults.standard.set(alarmRepeatDaily, forKey: "TvControl.AlarmRepeatDaily")
+            updateNextAlarmDescription()
+        }
+    }
+
+    /// Texte décrivant la prochaine exécution de l'alarme
+    @Published public private(set) var nextAlarmDescription: String = ""
+
     public var onMenuBarNeedsUpdate: (() -> Void)?
 
     private var timer: Timer?
+    private var alarmTimer: Timer?
+    private var lastAlarmFiredKey: String?
+    private var didSendAlarmWarningForToday: Bool = false
     private var sleepPreventionActivity: NSObjectProtocol?
     private var didSendFiveMinuteWarning: Bool = false
 
@@ -85,7 +125,29 @@ public final class SleepTimerManager: ObservableObject {
             self.soundEnabled = UserDefaults.standard.bool(forKey: "TvControl.SoundEnabled")
         }
 
+        self.isAlarmEnabled = UserDefaults.standard.bool(forKey: "TvControl.AlarmEnabled")
+
+        if UserDefaults.standard.object(forKey: "TvControl.AlarmHour") == nil {
+            self.alarmHour = 23
+        } else {
+            self.alarmHour = UserDefaults.standard.integer(forKey: "TvControl.AlarmHour")
+        }
+
+        if UserDefaults.standard.object(forKey: "TvControl.AlarmMinute") == nil {
+            self.alarmMinute = 0
+        } else {
+            self.alarmMinute = UserDefaults.standard.integer(forKey: "TvControl.AlarmMinute")
+        }
+
+        if UserDefaults.standard.object(forKey: "TvControl.AlarmRepeatDaily") == nil {
+            self.alarmRepeatDaily = true
+        } else {
+            self.alarmRepeatDaily = UserDefaults.standard.bool(forKey: "TvControl.AlarmRepeatDaily")
+        }
+
         checkLaunchAtLoginStatus()
+        setupAlarmTimer()
+        updateNextAlarmDescription()
     }
 
     // MARK: - Contrôle du Minuteur
@@ -218,6 +280,154 @@ public final class SleepTimerManager: ObservableObject {
                 body: message
             )
         }
+    }
+
+    // MARK: - Gestion de l'Alarme d'Extinction Programmée
+
+    /// Date synchronisée avec l'heure et la minute de l'alarme pour SwiftUI DatePicker
+    public var alarmTimeDate: Date {
+        get {
+            var comp = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+            comp.hour = alarmHour
+            comp.minute = alarmMinute
+            comp.second = 0
+            return Calendar.current.date(from: comp) ?? Date()
+        }
+        set {
+            let comp = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            alarmHour = comp.hour ?? 23
+            alarmMinute = comp.minute ?? 0
+        }
+    }
+
+    /// Format HH:mm de l'alarme (ex: "23:00")
+    public var formattedAlarmTime: String {
+        return String(format: "%02d:%02d", alarmHour, alarmMinute)
+    }
+
+    /// Met à jour la description textuelle de la prochaine alarme
+    public func updateNextAlarmDescription() {
+        guard isAlarmEnabled else {
+            nextAlarmDescription = "Alarme désactivée"
+            return
+        }
+
+        let now = Date()
+        let calendar = Calendar.current
+        var comp = calendar.dateComponents([.year, .month, .day], from: now)
+        comp.hour = alarmHour
+        comp.minute = alarmMinute
+        comp.second = 0
+
+        guard var target = calendar.date(from: comp) else {
+            nextAlarmDescription = "Heure programmée : \(formattedAlarmTime)"
+            return
+        }
+
+        if target <= now {
+            target = calendar.date(byAdding: .day, value: 1, to: target) ?? target
+            nextAlarmDescription = "Prochaine extinction demain à \(formattedAlarmTime)"
+        } else {
+            nextAlarmDescription = "Prochaine extinction aujourd'hui à \(formattedAlarmTime)"
+        }
+    }
+
+    private func setupAlarmTimer() {
+        // Timer de vérification périodique toutes les 10 secondes
+        alarmTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.checkAlarm()
+            }
+        }
+        if let alarmTimer = alarmTimer {
+            RunLoop.main.add(alarmTimer, forMode: .common)
+        }
+
+        // Notification lors de la sortie de veille du Mac
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.checkAlarm()
+                self?.updateNextAlarmDescription()
+            }
+        }
+    }
+
+    private func checkAlarm() {
+        guard isAlarmEnabled else { return }
+
+        let now = Date()
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let minute = calendar.component(.minute, from: now)
+
+        // Déclenchement à l'heure exacte
+        if hour == alarmHour && minute == alarmMinute {
+            let key = "\(calendar.component(.year, from: now))-\(calendar.component(.month, from: now))-\(calendar.component(.day, from: now))-\(hour)-\(minute)"
+            if lastAlarmFiredKey != key {
+                lastAlarmFiredKey = key
+                triggerAlarmShutdown()
+            }
+            return
+        }
+
+        // Avertissement 5 minutes avant
+        if notifyBeforeShutdown {
+            var comp = calendar.dateComponents([.year, .month, .day], from: now)
+            comp.hour = alarmHour
+            comp.minute = alarmMinute
+            comp.second = 0
+            if var target = calendar.date(from: comp) {
+                if target < now {
+                    target = calendar.date(byAdding: .day, value: 1, to: target) ?? target
+                }
+                let diff = Int(target.timeIntervalSince(now))
+                if diff >= 285 && diff <= 305 && !didSendAlarmWarningForToday {
+                    didSendAlarmWarningForToday = true
+                    let tvName = TVDiscoveryManager.shared.selectedTV?.name ?? "Votre TV"
+                    sendNotification(
+                        title: "Alarme TV dans 5 minutes ⏰",
+                        body: "\(tvName) va s'éteindre à \(formattedAlarmTime)."
+                    )
+                } else if diff > 360 {
+                    didSendAlarmWarningForToday = false
+                }
+            }
+        }
+    }
+
+    /// Déclenche l'extinction programmée par l'alarme
+    public func triggerAlarmShutdown() {
+        guard let tv = TVDiscoveryManager.shared.selectedTV else {
+            sendNotification(
+                title: "Alarme programmée ⚠️",
+                body: "L'alarme d'extinction s'est déclenchée, mais aucune TV n'est sélectionnée dans TvControl."
+            )
+            return
+        }
+
+        sendNotification(
+            title: "Alarme d'extinction 🌙",
+            body: "Extinction de \(tv.name) à l'heure programmée (\(formattedAlarmTime))."
+        )
+
+        Task {
+            let (success, message) = await TVController.shared.turnOff(tv: tv)
+            if !success {
+                self.sendNotification(
+                    title: "Échec de l'alarme TV ⚠️",
+                    body: message
+                )
+            }
+        }
+
+        if !alarmRepeatDaily {
+            isAlarmEnabled = false
+        }
+        updateNextAlarmDescription()
     }
 
     // MARK: - Formatage pour l'UI et la Barre des Menus

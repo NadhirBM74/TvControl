@@ -13,6 +13,7 @@ import AppKit
 
 public enum SettingsTab: String, CaseIterable, Identifiable {
     case tvs = "tvs"
+    case alarm = "alarm"
     case general = "general"
     case updates = "updates"
 
@@ -21,6 +22,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     public var title: String {
         switch self {
         case .tvs: return "TV Wi-Fi"
+        case .alarm: return "Alarme"
         case .general: return "Général"
         case .updates: return "Mise à jour"
         }
@@ -29,6 +31,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     public var symbol: String {
         switch self {
         case .tvs: return "tv"
+        case .alarm: return "alarm"
         case .general: return "gearshape"
         case .updates: return "arrow.triangle.2.circlepath"
         }
@@ -61,6 +64,8 @@ struct SettingsWindowView: View {
                     switch selectedTab {
                     case .tvs:
                         wifiTVsSection
+                    case .alarm:
+                        alarmSection
                     case .general:
                         generalSection
                     case .updates:
@@ -215,7 +220,110 @@ struct SettingsWindowView: View {
         }
     }
 
-    // MARK: - Onglet 2 : Général
+    // MARK: - Onglet 2 : Alarme programmée
+
+    private var alarmSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Alarme d'extinction quotidienne")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Définissez une heure précise à laquelle votre téléviseur s'éteindra automatiquement.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+
+            SettingsBox {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Activer l'alarme d'extinction")
+                                .font(.system(size: 12.5, weight: .medium))
+                            Text(timerManager.nextAlarmDescription)
+                                .font(.system(size: 11))
+                                .foregroundColor(timerManager.isAlarmEnabled ? .accentColor : .secondary)
+                        }
+
+                        Spacer()
+
+                        Toggle("", isOn: $timerManager.isAlarmEnabled)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                    }
+
+                    Divider()
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Heure d'extinction")
+                                .font(.system(size: 12.5, weight: .medium))
+                            Text("L'alarme déclenchera l'extinction à cette heure précise.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        DatePicker(
+                            "",
+                            selection: Binding(
+                                get: { timerManager.alarmTimeDate },
+                                set: { timerManager.alarmTimeDate = $0 }
+                            ),
+                            displayedComponents: .hourAndMinute
+                        )
+                        .datePickerStyle(.stepperField)
+                        .labelsHidden()
+                        .disabled(!timerManager.isAlarmEnabled)
+                    }
+
+                    Divider()
+
+                    Toggle("Répéter tous les jours à la même heure", isOn: $timerManager.alarmRepeatDaily)
+                        .font(.system(size: 12))
+                        .disabled(!timerManager.isAlarmEnabled)
+                }
+            }
+
+            SettingsBox {
+                HStack(spacing: 12) {
+                    Image(systemName: "tv.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(discoveryManager.selectedTV?.isOnline == true ? .green : .secondary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        if let tv = discoveryManager.selectedTV {
+                            Text("TV ciblée : \(tv.name)")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("\(tv.brand.rawValue) • IP : \(tv.ipAddress) • \(tv.isOnline ? "Allumée" : "Éteinte")")
+                                .font(.system(size: 10.5))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Aucune TV sélectionnée")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Sélectionnez une TV dans l'onglet \"TV Wi-Fi\" pour que l'alarme fonctionne.")
+                                .font(.system(size: 10.5))
+                                .foregroundColor(.red.opacity(0.85))
+                        }
+                    }
+
+                    Spacer()
+
+                    if let tv = discoveryManager.selectedTV {
+                        Button("Tester") {
+                            Task {
+                                _ = await tvController.turnOff(tv: tv)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(tvController.isSendingCommand)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Onglet 3 : Général
 
     private var generalSection: some View {
         SettingsBox {

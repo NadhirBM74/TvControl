@@ -2,7 +2,7 @@
 //  TvPopoverView.swift
 //  TvControl
 //
-//  Interface minimaliste et épurée calquée à 100 % sur EjectBar.
+//  Interface ultra-compacte et minimaliste style barre des menus macOS / EjectBar.
 //
 
 import SwiftUI
@@ -18,14 +18,29 @@ struct TvPopoverView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // MARK: - En-tête (TvControl centré + Roue crantée à droite, comme EjectBar)
+            // MARK: - En-tête (TvControl centré + Roue crantée à droite)
             headerView
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-                .padding(.bottom, 6)
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+                .padding(.bottom, 3)
 
-            // MARK: - Liste des 5 minuteurs (1h, 2h, 3h, 4h, 5h)
-            VStack(spacing: 4) {
+            // Indicateur subtil si une alarme quotidienne est programmée
+            if timerManager.isAlarmEnabled {
+                HStack(spacing: 4) {
+                    Image(systemName: "alarm.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(.orange)
+                    Text("Alarme : \(timerManager.formattedAlarmTime)")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.bottom, 3)
+            }
+
+            // MARK: - Liste ultra-compacte des 5 minuteurs (1h, 2h, 3h, 4h, 5h)
+            VStack(spacing: 2) {
                 ForEach(TimerPreset.allCases) { preset in
                     let isRunningThis = timerManager.isActive && timerManager.activePreset == preset
                     TimerRowView(
@@ -43,31 +58,31 @@ struct TvPopoverView: View {
 
                     if preset != TimerPreset.allCases.last {
                         Divider()
-                            .opacity(0.18)
-                            .padding(.leading, 46)
+                            .opacity(0.12)
+                            .padding(.leading, 36)
                     }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 7)
+            .padding(.bottom, 5)
 
             // MARK: - Pied de page minimaliste (TV active + Éteindre)
             Divider()
-                .opacity(0.2)
+                .opacity(0.18)
 
             footerView
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
         }
-        .frame(width: 255)
+        .frame(width: 215)
     }
 
-    // MARK: - Header View (identique à EjectBar)
+    // MARK: - Header View
 
     private var headerView: some View {
         ZStack {
             Text("TvControl")
-                .font(.system(size: 11.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
 
             HStack {
@@ -91,6 +106,17 @@ struct TvPopoverView: View {
                         }
                         Divider()
                     }
+
+                    Button("Alarme d'extinction (\(timerManager.formattedAlarmTime))...") {
+                        onOpenSettings(.alarm)
+                    }
+
+                    Toggle("Alarme activée", isOn: Binding(
+                        get: { timerManager.isAlarmEnabled },
+                        set: { timerManager.isAlarmEnabled = $0 }
+                    ))
+
+                    Divider()
 
                     Button("Choisir la TV (Wi-Fi)...") {
                         onOpenSettings(.tvs)
@@ -117,42 +143,42 @@ struct TvPopoverView: View {
                     }
                 } label: {
                     Image(systemName: "gearshape.fill")
-                        .font(.system(size: 11))
+                        .font(.system(size: 10.5))
                         .foregroundColor(.secondary)
                         .contentShape(Rectangle())
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
-                .frame(width: 16, height: 16)
+                .frame(width: 14, height: 14)
             }
         }
     }
 
-    // MARK: - Pied de page minimaliste (État Ping Allumée/Éteinte + Éteindre)
+    // MARK: - Pied de page minimaliste
 
     private var footerView: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             Button(action: {
                 onOpenSettings(.tvs)
             }) {
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     if let tv = discoveryManager.selectedTV {
                         Circle()
                             .fill(tv.isOnline ? Color.green : Color.red.opacity(0.85))
-                            .frame(width: 6, height: 6)
+                            .frame(width: 5, height: 5)
 
                         Text("\(cleanTVName(tv.name) ?? tv.name) • \(tv.isOnline ? "Allumée" : "Éteinte")")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 9.5, weight: .medium))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     } else {
                         Circle()
                             .fill(Color.secondary.opacity(0.5))
-                            .frame(width: 6, height: 6)
+                            .frame(width: 5, height: 5)
 
                         Text("Choisir une TV...")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 9.5, weight: .medium))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
@@ -171,18 +197,18 @@ struct TvPopoverView: View {
                         _ = await tvController.turnOff(tv: tv)
                     }
                 }) {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 2.5) {
                         if tvController.isSendingCommand {
                             ProgressView()
                                 .controlSize(.small)
-                                .scaleEffect(0.55)
-                                .frame(width: 10, height: 10)
+                                .scaleEffect(0.5)
+                                .frame(width: 8, height: 8)
                         } else {
                             Image(systemName: "power")
-                                .font(.system(size: 8.5, weight: .bold))
+                                .font(.system(size: 8, weight: .bold))
                         }
                         Text("Éteindre")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 9, weight: .medium))
                     }
                     .foregroundColor(.secondary)
                 }
@@ -204,7 +230,7 @@ struct TvPopoverView: View {
     }
 }
 
-// MARK: - Ligne de minuteur (exactement comme DriveRowView d'EjectBar)
+// MARK: - Ligne de minuteur ultra-compacte
 
 struct TimerRowView: View {
     let preset: TimerPreset
@@ -214,49 +240,49 @@ struct TimerRowView: View {
     @State private var isHovered: Bool = false
 
     var body: some View {
-        HStack(spacing: 9) {
-            // Badge 34x34 sobre
+        HStack(spacing: 7) {
+            // Badge 26x26 sobre et compact
             ZStack {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(isActive ? Color.orange.opacity(0.18) : Color.primary.opacity(0.06))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 26, height: 26)
 
                 Text(preset.shortLabel)
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
                     .foregroundColor(isActive ? .orange : .primary)
             }
 
-            // Titre + Sous-titre (ou décompte en direct quand actif)
-            VStack(alignment: .leading, spacing: 1) {
+            // Titre + Sous-titre (ou décompte en direct)
+            VStack(alignment: .leading, spacing: 0.5) {
                 Text(preset.title)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
                 if let remainingText = remainingText {
                     Text(remainingText)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
                         .foregroundColor(.orange)
                 } else {
                     Text(preset.subtitle)
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.system(size: 9.5, weight: .regular))
                         .foregroundColor(.secondary)
                 }
             }
 
             Spacer()
 
-            // Bouton style EjectButton d'EjectBar
+            // Bouton arrondi compact style EjectBar
             SimplePopoverButton(
                 title: isActive ? "Stop" : "Lancer",
                 isActive: isActive,
                 action: onToggle
             )
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(isHovered ? Color.primary.opacity(0.04) : Color.clear)
         )
         .onHover { hovering in
@@ -267,7 +293,7 @@ struct TimerRowView: View {
     }
 }
 
-// MARK: - Bouton arrondi compact identique à EjectButton d'EjectBar
+// MARK: - Bouton arrondi compact identique à EjectBar
 
 struct SimplePopoverButton: View {
     let title: String
@@ -278,12 +304,12 @@ struct SimplePopoverButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 9.5, weight: .medium))
                 .foregroundColor(isActive ? .orange : .primary)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 3.5)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2.5)
                 .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(
                             isActive
                                 ? Color.orange.opacity(0.14)
@@ -291,12 +317,12 @@ struct SimplePopoverButton: View {
                         )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .stroke(
                             isActive
                                 ? Color.orange.opacity(0.45)
                                 : Color(NSColor.separatorColor).opacity(0.75),
-                            lineWidth: 1
+                            lineWidth: 0.75
                         )
                 )
         }
